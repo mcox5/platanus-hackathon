@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 import threading
 import queue
 
-from typing import List
+from typing import List, Dict
 
 import services.textract_function as textract_function
 
@@ -26,7 +26,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 AWS_CLIENT = client(aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_ACCESS_KEY_VALUE, service_name='s3')
 AWS_ANSWER_PARSER_AGENT = client(aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_ACCESS_KEY_VALUE, service_name='bedrock-agent-runtime', region_name='us-west-2')
-
+AWS_BEDROCK_CLIENT = client(aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_ACCESS_KEY_VALUE, service_name='bedrock-runtime', region_name='us-west-2')
 
 TEXTRACT_CLIENT = client(
     'textract',
@@ -34,6 +34,25 @@ TEXTRACT_CLIENT = client(
     aws_secret_access_key=AWS_ACCESS_KEY_VALUE,
     region_name='us-west-2'  # Cambia por la región correcta
 )
+
+def get_correct_exam_system_prompt(guideline, answer):
+    system_prompt = (
+        "You are an assistant for grading exams. "
+        "You need to evaluate how accurate the student's answer is based on a guideline and the answer provided as context. "
+        "The guideline has a structure of a dictionary where the main key is the question number, followed by a dictionary with each question and an outline of what is expected as the student's answer. "
+        "The answer is a dictionary with the same structure, but it contains the student's responses. "
+        "You must evaluate the accuracy of the student's answer on a scale from 1 to 10. "
+        "Provide the result only as a dictionary in the following format: "
+        "Question: { score: assigned_score, feedback: a brief comment explaining the assigned score }. "
+        "Example output: "
+        "{\"1\": { \"score\": 10, \"feedback\": \"The student's answer is correct as it includes all the key points of the expected answer.\" }, "
+        "\"2\": { \"score\": 5, \"feedback\": \"The student's answer is incomplete as it misses a valid argument.\" }, ... }"
+        "The guideline and the student's answer to evaluate are as follows: "
+        f"Guideline: {guideline}. "
+        f"Answer: {answer}. "
+        "Please ensure that the output is in Spanish."
+    )
+    return system_prompt
 
 app = FastAPI()
 
@@ -129,8 +148,73 @@ async def parse_ocr_answer(ocr_answer: List[str]):
         print(f"Error al invocar el modelo: {str(e)}")
         return {"error": str(e)}
 
+@app.post("/correctExam/")
+async def correct_exam(guideline: Dict, answer: Dict):
+    # Print input parameters for verification
+    print("Input Guideline:", json.dumps(guideline, indent=2))
+    print("Input Answer:", json.dumps(answer, indent=2))
 
+    try:
+        # Prepare the system prompt
+        system_prompt = get_correct_exam_system_prompt(guideline, answer)
+        print("System Prompt:", system_prompt)
 
+        # Print client and model details
+        print("Using AWS Bedrock Client:", AWS_BEDROCK_CLIENT)
+        print("Model ID: anthropic.claude-3-haiku-20240307-v1:0")
+
+        # Make the API call
+        print("Attempting to invoke Bedrock Converse API...")
+        response = AWS_BEDROCK_CLIENT.converse(
+            modelId="anthropic.claude-3-haiku-20240307-v1:0",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [{"text": "Corrige la prueba en base a la pauta y respuesta de tu system prompt"}]
+                }
+            ],
+            system=[{"text": get_correct_exam_system_prompt(guideline, answer)}],
+            inferenceConfig={
+                "temperature": 0.8  # Optional: Set a max token limit
+            }
+        )
+
+        # Print full raw response for inspection
+        print("Raw Response:", json.dumps(response, indent=2))
+
+        # Extract and print the content
+        if 'output' in response and 'message' in response['output']:
+            content = response['output']['message']['content'][0]['text']
+            print("Extracted Content:", content)
+
+            # Attempt to parse the content (if it's expected to be JSON)
+            try:
+                parsed_content = json.loads(content)
+                print("Parsed Content:", json.dumps(parsed_content, indent=2))
+                return parsed_content
+            except json.JSONDecodeError:
+                print("Content is not JSON, returning as string")
+                return {"result": content}
+
+        # If no content found
+        print("No content found in the response")
+        return {"error": "No content in response"}
+
+    except Exception as e:
+        # Comprehensive error logging
+        print("Error occurred:")
+        print("Error Type:", type(e).__name__)
+        print("Error Message:", str(e))
+
+        # Print full traceback for detailed debugging
+        # traceback.print_exc()
+
+        # Return error details
+        # return {
+        #     "error": str(e),
+        #     "error_type": type(e).__name__,
+        #     "traceback": traceback.format_exc()
+        # }
 
 @app.post("/pauta/")
 async def upload_file(file: UploadFile = File(...)):
