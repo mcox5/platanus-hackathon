@@ -28,6 +28,25 @@ UPLOAD_DIR = "data"
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
+def fixjson(badjson):
+    s = badjson
+    idx = 0
+    while True:
+        try:
+            start = s.index( '": "', idx) + 4
+            end1  = s.index( '",\n',idx)
+            end2  = s.index( '"\n', idx)
+            if end1 < end2:
+                end = end1
+            else:
+                end = end2
+            content = s[start:end]
+            content = content.replace('"', '\\"')
+            s = s[:start] + content + s[end:]
+            idx = start + len(content) + 6
+        except:
+            return s
+
 def get_supabase_client() -> Client:
     if not SUPABASE_URL or not SUPABASE_KEY:
         raise ValueError("Faltan las variables de configuración de Supabase")
@@ -273,7 +292,7 @@ async def correct_exam(guideline: Dict, answer: Dict):
             ],
             system=[{"text": get_correct_exam_system_prompt(guideline, answer)}],
             inferenceConfig={
-                "temperature": 0.2  # Optional: Set a max token limit
+                "temperature": 0.0  # Optional: Set a max token limit
             }
         )
         if 'output' in response and 'message' in response['output']:
@@ -284,6 +303,7 @@ async def correct_exam(guideline: Dict, answer: Dict):
                 print("Parsed Content:", json.dumps(parsed_content, indent=2))
                 return parsed_content
             except json.JSONDecodeError:
+                return fixjson(content)
                 print("Content is not JSON, returning as string")
                 return {"result": content}
         return {"error": "No content in response"}
@@ -418,8 +438,8 @@ async def get_guideline_questions(guideline_id: int):
     return {"message": "Test questions retrieved successfully", "data": response.data}
 
 
-@api_router.get("/get_prompting_data/{guideline_id}")
-async def get_prompting_data(guideline_id: int):
+@api_router.get("/get_prompting_data/")
+async def get_prompting_data(guideline_id: int, test_id: int):
     """Get all guideline questions for a specific guideline"""
     response = supabase_client.table("questions").select("*").eq("guideline_id", guideline_id).execute()
     if not response.data:
@@ -427,14 +447,27 @@ async def get_prompting_data(guideline_id: int):
     data_info = response.data
     guideline_prompt_info = {}
     answer_prompt_info = {}
+    parsed_result = []
     for idx, info in enumerate(data_info):
         question_id = info['id']
-        student_answer = supabase_client.table("students_answers").select("content").eq("question_id", question_id).execute()
+        student_answer = supabase_client.table("students_answers").select("content").eq("question_id", question_id).eq("test_id", test_id).execute()
         guideline_prompt_info[idx] = {
             'question' : info['title'],
             'answer' : info['guideline_answer'],
         }
         answer_prompt_info[idx] = {'answer' : student_answer.data[0]['content']}
+
+        # Parsed Result
+        mini_result = {
+            'questionNumber' : question_id,
+            'question_type' : 'development',
+            'question' : info['title'],
+            'guidelineAnswer' : info['guideline_answer'],
+            'studentAnswer' : student_answer.data[0]['content'],
+            'studentScore' : 0,
+            'modelFeedback' : False,
+        }
+        parsed_result.append(mini_result)
     info_to_correct = {
         'guideline' : guideline_prompt_info,
         'answer' : answer_prompt_info,
@@ -443,7 +476,13 @@ async def get_prompting_data(guideline_id: int):
         info_to_correct["guideline"],
         info_to_correct["answer"],
     )
-    return result
+    if not isinstance(result, str):
+        new_result = []
+        for idx, mini_result in enumerate(parsed_result):
+            mini_result['studentScore'] = result[str(idx)]['score']
+            mini_result['modelFeedback'] = result[str(idx)]['feedback']
+            new_result.append(mini_result)
+    return new_result
 
 
 
