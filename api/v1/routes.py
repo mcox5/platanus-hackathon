@@ -238,7 +238,7 @@ async def save_file(file: UploadFile = File(...)):
     file_questions = parse_ocr_function(text_in_file["result"])
     #save file_questions dict to questions table
     for key, value in file_questions.items():
-        supabase_client.table("questions").insert({"guideline_id":guideline_id,"positional_index": key, "title": value.get("question"), "guideline_answer":value.get("answer")}).execute()
+        supabase_client.table("questions").insert({"guideline_id":guideline_id,"positional_index": key, "title": value.get("question"), "guideline_answer":value.get("answer"), "max_score":10}).execute()
     
     return {"message": "File saved successfully", "data": [file_in_s3,text_in_file, file_questions]}
 
@@ -247,7 +247,7 @@ async def save_Test(guideline_id: int = Form(...),files: List[UploadFile] = File
     files_in_s3 = upload_test(files)
 
     for file in files_in_s3["files"]:
-        response = supabase_client.table("tests").insert({"guideline_id": guideline_id, "s3_link":file["url"], "s3_filename": file["filename"]}).execute()
+        response = supabase_client.table("tests").insert({"guideline_id": guideline_id, "s3_link":file["url"], "s3_filename": file["filename"], "title":file["filename"]}).execute()
         test_id = response.data[0]["id"]
         text_in_file = proses_file_function(f'data/{file["filename"]}')
         file_questions = parse_ocr_function(text_in_file["result"])
