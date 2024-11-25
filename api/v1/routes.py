@@ -49,6 +49,33 @@ TEXTRACT_CLIENT = client(
 
 AWS_BEDROCK_CLIENT = client(aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_ACCESS_KEY_VALUE, service_name='bedrock-runtime', region_name='us-west-2')
 
+correct_exam_json = [
+    {
+        "toolSpec": {
+            "name": "grade_exam",
+            "description": "Grade an exam based on a provided guideline and student's answers.",
+            "inputSchema": {
+                "json": {
+                    "type": "object",
+                    "properties": {
+                        "score": {
+                            "type": "integer",
+                            "description": "the accuracy of the student's answer on a scale from 1 to 10",
+                            "minimum": 1,
+                            "maximum": 10
+                        },
+                        "feedback": {
+                            "type": "string",
+                            "description": "a brief comment explaining the assigned score"
+                        }
+                    },
+                    "required": ["score", "feedback"]
+                }
+            }
+        }
+    }
+]
+
 def get_correct_exam_system_prompt(guideline, answer):
     system_prompt = (
         "You are an assistant for grading exams. "
@@ -274,6 +301,14 @@ async def correct_exam(guideline: Dict, answer: Dict):
             system=[{"text": get_correct_exam_system_prompt(guideline, answer)}],
             inferenceConfig={
                 "temperature": 0.2  # Optional: Set a max token limit
+            },
+            toolConfig={
+                "tools": correct_exam_json,
+                "toolChoice": {
+                    "tool": {
+                        "name": "grade_exam"
+                    }
+                }
             }
         )
         if 'output' in response and 'message' in response['output']:
