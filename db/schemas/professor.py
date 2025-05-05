@@ -1,9 +1,21 @@
-# Pydantic Imports
 from pydantic import BaseModel
-# Libraries Imports
+from typing import Optional, List, Dict
 
-# Local Imports
+# --- Professor Schemas ---
+class ProfessorBase(BaseModel):
+    email: str
 
+class ProfessorCreate(ProfessorBase):
+    pass
 
-class Professor(BaseModel):
-    email : str
+class ProfessorRead(ProfessorBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+class ProfessorUpdate(BaseModel):
+    email: Optional[str] = None
+
+    class Config:
+        orm_mode = True
