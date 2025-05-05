@@ -1,6 +1,7 @@
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from dotenv import load_dotenv
 
 # Load environment variables from .env file (optional)
@@ -17,10 +18,10 @@ ENV = os.getenv("ENV", "development")  # Default to development if ENV is not se
 if ENV == "development":
     # Local PostgreSQL settings
     DB_USER = os.getenv("DEV_DB_USER", "postgres")
-    DB_PASSWORD = os.getenv("DEV_DB_PASSWORD", "password")
-    DB_HOST = os.getenv("DEV_DB_HOST", "192.168.1.167")
+    DB_PASSWORD = os.getenv("DEV_DB_PASSWORD", "postgres")
+    DB_HOST = os.getenv("DEV_DB_HOST", "0.0.0.0")
     DB_PORT = os.getenv("DEV_DB_PORT", "5432")
-    DB_NAME = os.getenv("DEV_DB_NAME", "dev_db")
+    DB_NAME = os.getenv("DEV_DB_NAME", "appdb")
 
 elif ENV == "production":
     # AWS PostgreSQL settings
@@ -33,17 +34,23 @@ elif ENV == "production":
 else:
     raise ValueError("Invalid ENV value. Use 'development' or 'production'.")
 
-# Construct the database URL
-DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Create SQLAlchemy engine and session
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)  # Pre-ping ensures live connection
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    echo=True,
+    future=True
+)  # Pre-ping ensures live connection
+
+async_session = sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
 
 # Dependency for FastAPI to use DB sessions
-def get_db():
-    db = SessionLocal()
-    try:
+async def get_db():
+    async with async_session() as db:
         yield db
-    finally:
-        db.close()
