@@ -16,6 +16,11 @@ python-dotenv = "^1.0.1"
 pydantic-settings = "^2.6.1"
 boto3 = "^1.35.68"
 python-multipart = "^0.0.17"
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.40"}
+psycopg2 = "^2.9.10"
+asyncmy = "^0.2.10"
+asyncpg = "^0.30.0"
+aiofiles = "^24.1.0"
 
 
 
