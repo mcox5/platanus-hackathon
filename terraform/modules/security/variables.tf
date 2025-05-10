@@ -1,0 +1,20 @@
+variable "app_name" {
+  description = "Name of the application"
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+}
+
+variable "vpc_id" {
+  description = "ID of the VPC"
+  type        = string
+}
+
+variable "container_port" {
+  description = "Port that the container exposes"
+  type        = number
+  default     = 8080
+}
