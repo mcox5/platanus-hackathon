@@ -1,6 +1,6 @@
-# Terraform Infrastructure for Platanus App
+# Terraform Infrastructure for Meayudai App
 
-This directory contains Terraform configuration to deploy the Platanus application on AWS using a simpler EC2 + RDS architecture instead of the previous ECS Fargate setup.
+This directory contains Terraform configuration to deploy the Meayudai application on AWS using a simpler EC2 + RDS architecture instead of the previous ECS Fargate setup.
 
 ## Architecture
 
