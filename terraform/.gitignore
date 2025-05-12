@@ -23,3 +23,7 @@ override.tf.json
 terraform.rc
 
 crash.log
+
+*.pem
+
+tfplan

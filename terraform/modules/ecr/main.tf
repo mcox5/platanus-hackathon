@@ -10,6 +10,11 @@ resource "aws_ecr_repository" "app" {
     Name        = "${var.app_name}-ecr-${var.environment}"
     Environment = var.environment
   }
+  
+  # Critical: This lifecycle block ensures Terraform tries harder to delete the repository
+  lifecycle {
+    create_before_destroy = false
+  }
 }
 
 # Add lifecycle policy to limit the number of images

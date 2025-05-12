@@ -29,15 +29,62 @@ resource "aws_ecs_cluster" "main" {
   }
 }
 
+# Get latest Amazon Linux 2 ECS-optimized AMI
+data "aws_ami" "ecs_optimized" {
+  most_recent = true
+  owners      = ["amazon"]
+  
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-ecs-hvm-*-x86_64-ebs"]
+  }
+  
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
+# EC2 Instance for ECS
+resource "aws_instance" "ecs" {
+  ami                    = data.aws_ami.ecs_optimized.id
+  instance_type          = var.instance_type
+  subnet_id              = var.public_subnet_ids[0]
+  vpc_security_group_ids = [var.app_security_group_id]
+  key_name               = var.key_name
+  iam_instance_profile   = aws_iam_instance_profile.ecs_instance.name
+  
+  user_data = <<-EOF
+    #!/bin/bash
+    echo "ECS_CLUSTER=${aws_ecs_cluster.main.name}" >> /etc/ecs/ecs.config
+    echo "ECS_ENABLE_TASK_IAM_ROLE=true" >> /etc/ecs/ecs.config
+    echo "ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true" >> /etc/ecs/ecs.config
+  EOF
+  
+  root_block_device {
+    volume_type = "gp3"
+    volume_size = 30
+  }
+  
+  tags = {
+    Name        = "${var.app_name}-instance-${var.environment}"
+    Environment = var.environment
+  }
+}
+
+# IAM Instance Profile for EC2
+resource "aws_iam_instance_profile" "ecs_instance" {
+  name = "${var.app_name}-instance-profile-${var.environment}"
+  role = var.ecs_instance_role
+}
+
 # ECS Task Definition
 resource "aws_ecs_task_definition" "app" {
   family                   = "${var.app_name}-task-${var.environment}"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = var.task_cpu
-  memory                   = var.task_memory
-  execution_role_arn       = var.ecs_task_execution_role
-  task_role_arn            = var.ecs_task_role
+  execution_role_arn      = var.ecs_task_execution_role
+  task_role_arn           = var.ecs_task_role
+  network_mode            = "bridge"
+  requires_compatibilities = ["EC2"]
   
   container_definitions = jsonencode([
     {
@@ -54,20 +101,69 @@ resource "aws_ecs_task_definition" "app" {
       ]
       
       environment = [
+        # Environment type
         {
           name  = "ENVIRONMENT"
           value = "production"
         },
+        # Primary database connection string
         {
           name  = "DATABASE_URL"
           value = "postgresql+asyncpg://${var.db_username}:${var.db_password}@${var.db_host}/${var.db_name}"
+        },
+        # Individual database connection parameters
+        {
+          name  = "PROD_DB_USER"
+          value = var.db_username
+        },
+        {
+          name  = "PROD_DB_PASSWORD"
+          value = var.db_password
+        },
+        {
+          name  = "PROD_DB_HOST"
+          value = split(":", var.db_host)[0]
+        },
+        {
+          name  = "PROD_DB_PORT"
+          value = try(split(":", var.db_host)[1], "5432")
+        },
+        {
+          name  = "PROD_DB_NAME"
+          value = var.db_name
+        },
+        # Additional database parameters with standard naming
+        {
+          name  = "DB_USERNAME"
+          value = var.db_username
+        },
+        {
+          name  = "DB_PASSWORD"
+          value = var.db_password
+        },
+        {
+          name  = "DB_HOST"
+          value = split(":", var.db_host)[0]
+        },
+        {
+          name  = "DB_PORT"
+          value = try(split(":", var.db_host)[1], "5432")
+        },
+        {
+          name  = "DB_NAME"
+          value = var.db_name
+        },
+        # App hostname environment variable not needed for EC2 deployment
+        {
+          name  = "APP_HOSTNAME"
+          value = "localhost"
         }
       ]
       
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          "awslogs-group"         = local.log_group_name
+          "awslogs-group"         = aws_cloudwatch_log_group.app.name
           "awslogs-region"        = var.aws_region
           "awslogs-stream-prefix" = "ecs"
         }
@@ -89,98 +185,22 @@ resource "aws_ecs_task_definition" "app" {
   }
 }
 
-# Application Load Balancer
-resource "aws_lb" "app" {
-  name               = "${var.app_name}-alb-${var.environment}"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [var.alb_security_group_id]
-  subnets            = var.public_subnet_ids
-  
-  enable_deletion_protection = var.environment == "prod" ? true : false
-  
-  tags = {
-    Name        = "${var.app_name}-alb-${var.environment}"
-    Environment = var.environment
-  }
-}
-
-# Target Group
-resource "aws_lb_target_group" "app" {
-  name        = "${var.app_name}-tg-${var.environment}"
-  port        = var.container_port
-  protocol    = "HTTP"
-  vpc_id      = var.vpc_id
-  target_type = "ip"
-  
-  health_check {
-    path                = "/"
-    port                = "traffic-port"
-    healthy_threshold   = 3
-    unhealthy_threshold = 3
-    timeout             = 5
-    interval            = 30
-    matcher             = "200"
-  }
-  
-  tags = {
-    Name        = "${var.app_name}-tg-${var.environment}"
-    Environment = var.environment
-  }
-}
-
-# HTTP Listener
-resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.app.arn
-  port              = 80
-  protocol          = "HTTP"
-  
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.app.arn
-  }
-}
-
-# HTTPS Listener (commented out - uncomment when you have SSL certificate)
-# resource "aws_lb_listener" "https" {
-#   load_balancer_arn = aws_lb.app.arn
-#   port              = 443
-#   protocol          = "HTTPS"
-#   ssl_policy        = "ELBSecurityPolicy-2016-08"
-#   certificate_arn   = var.certificate_arn
-#   
-#   default_action {
-#     type             = "forward"
-#     target_group_arn = aws_lb_target_group.app.arn
-#   }
-# }
-
 # ECS Service
 resource "aws_ecs_service" "app" {
   name            = "${var.app_name}-service-${var.environment}"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
-  desired_count   = var.app_count
-  launch_type     = "FARGATE"
-  
-  network_configuration {
-    security_groups  = [var.app_security_group_id]
-    subnets          = var.public_subnet_ids
-    assign_public_ip = true
-  }
-  
-  load_balancer {
-    target_group_arn = aws_lb_target_group.app.arn
-    container_name   = local.container_name
-    container_port   = var.container_port
-  }
-  
-  depends_on = [
-    aws_lb_listener.http
-  ]
+  desired_count   = 1  # Single instance
+  launch_type     = "EC2"
   
   tags = {
     Name        = "${var.app_name}-service-${var.environment}"
     Environment = var.environment
+  }
+  
+  # Direct EC2 placement
+  ordered_placement_strategy {
+    type  = "binpack"
+    field = "cpu"
   }
 }

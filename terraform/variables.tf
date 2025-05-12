@@ -65,3 +65,10 @@ variable "app_count" {
   type        = number
   default     = 2
 }
+
+# EC2 configuration
+variable "ec2_instance_type" {
+  description = "EC2 instance type for the ECS host"
+  type        = string
+  default     = "t3.small"
+}

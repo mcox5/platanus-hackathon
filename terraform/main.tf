@@ -4,6 +4,18 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.4"
+    }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.2"
+    }
   }
   
   # Using local backend for now
@@ -29,6 +41,23 @@ module "vpc" {
   cidr_block  = var.vpc_cidr
 }
 
+module "security" {
+  source = "./modules/security"
+  
+  app_name    = var.app_name
+  environment = var.environment
+  vpc_id      = module.vpc.vpc_id
+}
+
+# SSH Key Pair for EC2 access
+module "key_pair" {
+  source = "./modules/key_pair"
+  
+  app_name    = var.app_name
+  environment = var.environment
+}
+
+# PostgreSQL RDS Database
 module "rds" {
   source = "./modules/rds"
   
@@ -44,14 +73,26 @@ module "rds" {
   db_security_group_id      = module.security.db_security_group_id
 }
 
-module "security" {
-  source = "./modules/security"
+# EC2 Instance
+module "ec2" {
+  source = "./modules/ec2"
   
-  app_name    = var.app_name
-  environment = var.environment
-  vpc_id      = module.vpc.vpc_id
+  app_name           = var.app_name
+  environment        = var.environment
+  instance_type      = var.ec2_instance_type
+  subnet_id          = module.vpc.public_subnet_ids[0]
+  security_group_id  = module.security.app_security_group_id
+  key_name           = module.key_pair.key_name
+  aws_region         = var.aws_region
+  
+  # Database connection information
+  db_host            = module.rds.db_endpoint
+  db_name            = var.db_name
+  db_username        = var.db_username
+  db_password        = var.db_password
 }
 
+# Optional: ECR Repository for Docker images
 module "ecr" {
   source = "./modules/ecr"
   
@@ -59,28 +100,4 @@ module "ecr" {
   environment = var.environment
 }
 
-module "ecs" {
-  source = "./modules/ecs"
-  
-  app_name                 = var.app_name
-  environment              = var.environment
-  vpc_id                   = module.vpc.vpc_id
-  public_subnet_ids        = module.vpc.public_subnet_ids
-  app_security_group_id    = module.security.app_security_group_id
-  alb_security_group_id    = module.security.alb_security_group_id
-  ecs_task_execution_role  = module.iam.ecs_task_execution_role
-  ecs_task_role            = module.iam.ecs_task_role
-  ecr_repository_url       = module.ecr.repository_url
-  container_port           = var.container_port
-  db_host                  = module.rds.db_endpoint
-  db_name                  = var.db_name
-  db_username              = var.db_username
-  db_password              = var.db_password
-}
-
-module "iam" {
-  source = "./modules/iam"
-  
-  app_name    = var.app_name
-  environment = var.environment
-}
+# No more ECS or IAM modules needed - all IAM roles are created in the EC2 module

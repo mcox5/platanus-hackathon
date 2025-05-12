@@ -1,0 +1,32 @@
+{
+  "family": "database-import",
+  "executionRoleArn": "$(terraform output -raw ecs_task_execution_role)",
+  "taskRoleArn": "$(terraform output -raw ecs_task_role)",
+  "networkMode": "awsvpc",
+  "containerDefinitions": [
+    {
+      "name": "import-container",
+      "image": "postgres:15",
+      "essential": true,
+      "command": ["bash", "-c", "apt-get update && apt-get install -y curl && curl -o dump.sql https://YOUR_DUMP_URL && PGPASSWORD='$DB_PASSWORD' psql -h $DB_ENDPOINT -U $DB_USER -d $DB_NAME -f dump.sql"],
+      "environment": [
+        { "name": "DB_ENDPOINT", "value": "$DB_ENDPOINT" },
+        { "name": "DB_USER", "value": "$DB_USER" },
+        { "name": "DB_PASSWORD", "value": "$DB_PASSWORD" },
+        { "name": "DB_NAME", "value": "$DB_NAME" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-region": "us-east-1",
+          "awslogs-group": "/ecs/database-import",
+          "awslogs-create-group": "true",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ],
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512"
+}

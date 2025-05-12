@@ -93,3 +93,19 @@ variable "db_password" {
   type        = string
   sensitive   = true
 }
+
+variable "instance_type" {
+  description = "EC2 instance type for ECS"
+  type        = string
+  default     = "t3.small"
+}
+
+variable "key_name" {
+  description = "Name of the SSH key pair for EC2 instance access"
+  type        = string
+}
+
+variable "ecs_instance_role" {
+  description = "IAM role for the ECS EC2 instance"
+  type        = string
+}

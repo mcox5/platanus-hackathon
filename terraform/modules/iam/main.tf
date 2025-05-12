@@ -112,3 +112,38 @@ resource "aws_iam_role_policy_attachment" "ecs_task_custom" {
   role       = aws_iam_role.ecs_task.name
   policy_arn = aws_iam_policy.ecs_task_custom.arn
 }
+
+# EC2 Instance Role for ECS
+resource "aws_iam_role" "ecs_instance_role" {
+  name = "${var.app_name}-ecs-instance-role-${var.environment}"
+  
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+  
+  tags = {
+    Name        = "${var.app_name}-ecs-instance-role-${var.environment}"
+    Environment = var.environment
+  }
+}
+
+# Attach the Amazon EC2ContainerServiceforEC2Role policy to the instance role
+resource "aws_iam_role_policy_attachment" "ecs_instance_role_attachment" {
+  role       = aws_iam_role.ecs_instance_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+}
+
+# Attach the SSM policy to allow managing the instance via Systems Manager
+resource "aws_iam_role_policy_attachment" "ssm_policy_attachment" {
+  role       = aws_iam_role.ecs_instance_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
