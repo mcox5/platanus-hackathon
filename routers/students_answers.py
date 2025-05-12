@@ -19,7 +19,7 @@ async def add_student_answer(
     db.add(new_answer)
     await db.commit()
     await db.refresh(new_answer)
-    return JSONResponse(content={"data": new_answer})
+    return JSONResponse(content={"data": jsonable_encoder(new_answer)})
 
 @router.get("/students_answers/{answer_id}", response_model=StudentAnswerRead, tags=["students_answers"])
 async def get_student_answer(
@@ -29,7 +29,7 @@ async def get_student_answer(
     ans = await db.get(StudentAnswer, answer_id)
     if not ans:
         raise HTTPException(status_code=404, detail="Student answer not found")
-    return JSONResponse(content={"data": ans})
+    return JSONResponse(content={"data": jsonable_encoder(ans)})
 
 @router.get("/students_answers", response_model=List[StudentAnswerRead], tags=["students_answers"])
 async def get_answers_for_test(
