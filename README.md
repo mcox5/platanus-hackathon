@@ -2,7 +2,7 @@
 ## Dream Team ✨
 * [@aberguecio](https://github.com/aberguecio)
 * [@mcox5](https://github.com/mcox5)
-* [@hjmacaya](https://github.com/mjmacaya)
+* [@hjmacaya](https://github.com/hjmacaya)
 * [@lucasvsj](https://github.com/lucasvsj)
 
 ## Setup

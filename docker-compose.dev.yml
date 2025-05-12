@@ -7,12 +7,9 @@ services:
       - .:/app
     ports:
       - "8000:8000"
-    environment:
-      - ENVIRONMENT=production
-      - AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_ACCESS_KEY_VALUE=${AWS_ACCESS_KEY_VALUE}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_KEY=${SUPABASE_KEY}
     env_file:
       - .env
+    # The following ensures ENVIRONMENT is always set to production for this container
+    # regardless of what's in .env
+    environment:
+      - ENVIRONMENT=production

@@ -11,9 +11,13 @@ load_dotenv()
 Base = declarative_base()
 
 # Environment-specific configurations
-ENV = os.getenv("ENV", "development")  # Default to development if ENV is not set 
+ENV = os.getenv("ENVIRONMENT", "development")  # Check for ENVIRONMENT variable first (used in ECS)
 
+# If ENVIRONMENT not set, try using ENV as fallback
+if not ENV:
+    ENV = os.getenv("ENV", "development")
 
+print(f"Starting application in {ENV} environment")
 
 if ENV == "development":
     # Local PostgreSQL settings
@@ -22,19 +26,31 @@ if ENV == "development":
     DB_HOST = os.getenv("DEV_DB_HOST", "0.0.0.0")
     DB_PORT = os.getenv("DEV_DB_PORT", "5432")
     DB_NAME = os.getenv("DEV_DB_NAME", "appdb")
+    
+    # Construct DATABASE_URL if not explicitly provided
+    DATABASE_URL = os.getenv("DATABASE_URL") or f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 elif ENV == "production":
     # AWS PostgreSQL settings
-    DB_USER = os.getenv("PROD_DB_USER")
-    DB_PASSWORD = os.getenv("PROD_DB_PASSWORD")
-    DB_HOST = os.getenv("PROD_DB_HOST")
-    DB_PORT = os.getenv("PROD_DB_PORT")
-    DB_NAME = os.getenv("PROD_DB_NAME")
+    DB_USER = os.getenv("PROD_DB_USER", os.getenv("DB_USERNAME"))
+    DB_PASSWORD = os.getenv("PROD_DB_PASSWORD", os.getenv("DB_PASSWORD"))
+    DB_HOST = os.getenv("PROD_DB_HOST", os.getenv("DB_HOST"))
+    DB_PORT = os.getenv("PROD_DB_PORT", "5432")
+    DB_NAME = os.getenv("PROD_DB_NAME", os.getenv("DB_NAME", "appdb"))
+    
+    # Construct DATABASE_URL if not explicitly provided
+    # Use the explicit DATABASE_URL if provided (from ECS environment variables)
+    DATABASE_URL = os.getenv("DATABASE_URL") or f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    
+    print(f"Production database configured with host: {DB_HOST}, database: {DB_NAME}")
 
 else:
-    raise ValueError("Invalid ENV value. Use 'development' or 'production'.")
+    raise ValueError(f"Invalid environment value: {ENV}. Use 'development' or 'production'.")
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+# Log the connection string without password for debugging
+safe_url = DATABASE_URL.replace(DB_PASSWORD, "****") if DB_PASSWORD else DATABASE_URL
+print(f"Database URL: {safe_url}")
+
 
 # Create SQLAlchemy engine and session
 engine = create_async_engine(
