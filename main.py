@@ -10,6 +10,7 @@ load_dotenv()
 from core.database import engine, Base
 
 # Import all ORM models so metadata is populated
+from db.models.account import Account
 from db.models.professor import Professor
 from db.models.guideline import Guideline
 from db.models.question import Question
@@ -31,6 +32,7 @@ from routers.questions import router as questions_router
 from routers.prompting import router as prompting_router
 from routers.guidelines import router as guidelines_router
 from routers.professors import router as professors_router
+from routers.auth import router as auth_router
 
 # FastAPI app instance
 app = FastAPI(
@@ -62,6 +64,7 @@ app.include_router(questions_router, prefix=prefix)
 app.include_router(prompting_router, prefix=prefix)
 app.include_router(guidelines_router, prefix=prefix)
 app.include_router(professors_router, prefix=prefix)
+app.include_router(auth_router, prefix=prefix)
 
 # Create tables on startup
 @app.on_event("startup")

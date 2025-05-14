@@ -11,6 +11,13 @@ class Student(Base):
     first_names = Column(String, nullable=False)
     last_names = Column(String, nullable=False)
 
+    # Account relationship
+    account = relationship(
+        "db.models.account.Account",
+        back_populates="student",
+        uselist=False
+    )
+    
     tests = relationship(
         "db.models.test.Test",
         back_populates="student",

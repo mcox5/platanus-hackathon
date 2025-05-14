@@ -3,7 +3,6 @@ from sqlalchemy.orm import relationship
 from core.database import Base
 
 
-
 class Professor(Base):
     __tablename__ = "professors"
 
@@ -13,6 +12,13 @@ class Professor(Base):
     last_names = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
 
+    # Account relationship
+    account = relationship(
+        "db.models.account.Account",
+        back_populates="professor",
+        uselist=False
+    )
+    
     guidelines = relationship(
         "db.models.guideline.Guideline",
         back_populates="professor",
