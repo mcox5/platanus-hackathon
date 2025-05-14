@@ -22,3 +22,8 @@ output "instance_role" {
   description = "IAM role name of the EC2 instance"
   value       = aws_iam_role.ec2_role.name
 }
+
+output "instance_elastic_ip" {
+  description = "Elastic IP address assigned to the EC2 instance"
+  value       = aws_eip.app_eip.public_ip
+}

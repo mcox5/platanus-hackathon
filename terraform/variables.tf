@@ -72,3 +72,16 @@ variable "ec2_instance_type" {
   type        = string
   default     = "t3.small"
 }
+
+# Domain configuration
+variable "root_domain_name" {
+  description = "Root domain name (e.g. meayudai.com)"
+  type        = string
+  default     = "meayudai.com"
+}
+
+variable "api_subdomain" {
+  description = "Subdomain for the API"
+  type        = string
+  default     = "api"
+}

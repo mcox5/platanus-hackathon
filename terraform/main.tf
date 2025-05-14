@@ -100,4 +100,15 @@ module "ecr" {
   environment = var.environment
 }
 
+# Route 53 configuration for the API subdomain
+module "route53" {
+  source = "./modules/route53"
+  
+  app_name        = var.app_name
+  environment     = var.environment
+  root_domain_name = var.root_domain_name
+  api_domain_name = "${var.api_subdomain}.${var.root_domain_name}"
+  elastic_ip     = module.ec2.instance_elastic_ip
+}
+
 # No more ECS or IAM modules needed - all IAM roles are created in the EC2 module

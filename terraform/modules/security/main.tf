@@ -73,8 +73,8 @@ resource "aws_security_group" "app" {
   
   # Additional ports for custom application needs
   ingress {
-    from_port   = 8000
-    to_port     = 8000
+    from_port   = 8080
+    to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
     description = "FastAPI default port"

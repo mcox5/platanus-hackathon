@@ -49,3 +49,19 @@ output "database_import_command" {
   value       = "PGPASSWORD=\"${var.db_password}\" psql -h ${element(split(":", module.rds.db_endpoint), 0)} -p ${element(split(":", module.rds.db_endpoint), 1)} -U ${var.db_username} -d ${var.db_name} -f /path/to/your/dump.sql"
   sensitive   = true
 }
+
+# Domain outputs
+output "api_domain" {
+  description = "API domain name"
+  value       = "${var.api_subdomain}.${var.root_domain_name}"
+}
+
+output "api_domain_fqdn" {
+  description = "Fully qualified domain name for the API"
+  value       = module.route53.api_domain_fqdn
+}
+
+output "name_servers" {
+  description = "Name servers for the domain (update these at your domain registrar)"
+  value       = module.route53.name_servers
+}
