@@ -22,13 +22,14 @@ print(f"Starting application in {ENV} environment")
 if ENV == "development":
     # Local PostgreSQL settings
     DB_USER = os.getenv("DEV_DB_USER", "postgres")
+    DB_HOST = os.getenv("DEV_DB_HOST", "localhost")
     DB_PASSWORD = os.getenv("DEV_DB_PASSWORD", "postgres")
-    DB_HOST = os.getenv("DEV_DB_HOST", "0.0.0.0")
     DB_PORT = os.getenv("DEV_DB_PORT", "5432")
     DB_NAME = os.getenv("DEV_DB_NAME", "appdb")
     
-    # Construct DATABASE_URL if not explicitly provided
-    DATABASE_URL = os.getenv("DATABASE_URL") or f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    # Use development-specific DATABASE_URL if available
+    DATABASE_URL = os.getenv("DEV_DATABASE_URL") or f"postgresql+asyncpg://{DB_USER}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    print(f"Development database configured with host: {DB_HOST}, database: {DB_NAME}")
 
 elif ENV == "production":
     # AWS PostgreSQL settings
@@ -38,19 +39,18 @@ elif ENV == "production":
     DB_PORT = os.getenv("PROD_DB_PORT", "5432")
     DB_NAME = os.getenv("PROD_DB_NAME", os.getenv("DB_NAME", "appdb"))
     
-    # Construct DATABASE_URL if not explicitly provided
-    # Use the explicit DATABASE_URL if provided (from ECS environment variables)
-    DATABASE_URL = os.getenv("DATABASE_URL") or f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-    
+    # Use production-specific DATABASE_URL if available
+    DATABASE_URL = os.getenv("PROD_DATABASE_URL") or f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     print(f"Production database configured with host: {DB_HOST}, database: {DB_NAME}")
 
 else:
     raise ValueError(f"Invalid environment value: {ENV}. Use 'development' or 'production'.")
 
-# Log the connection string without password for debugging
-safe_url = DATABASE_URL.replace(DB_PASSWORD, "****") if DB_PASSWORD else DATABASE_URL
-print(f"Database URL: {safe_url}")
 
+if DATABASE_URL:
+    print(f"Database URL created successfully")
+else:
+    raise ValueError("Failed to create DATABASE_URL")
 
 # Create SQLAlchemy engine and session
 engine = create_async_engine(
