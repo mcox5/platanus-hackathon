@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +7,7 @@ from typing import List
 from core.database import get_db
 from db.models import Guideline
 from db.schemas import GuidelineRead, GuidelineCreate, GuidelineUpdate
+from services.s3 import upload_pauta
 
 import json
 
@@ -61,3 +62,8 @@ async def delete_guideline(
         raise HTTPException(status_code=404, detail="Guideline not found")
     await db.delete(obj)
     await db.commit()
+
+@router.post("/guidelines/upload/", tags=["guidelines"])
+async def upload_guideline_file(file: UploadFile = File(...)):
+    """Upload a guideline file to S3 storage"""
+    return await upload_pauta(file)

@@ -18,7 +18,6 @@ from db.models.test import Test
 from db.models.student_answer import StudentAnswer
 
 # Routers
-from routers.pauta import router as pauta_router
 from routers.prueba import router as prueba_router
 from routers.files import router as files_router
 from routers.analyze import router as analyze_router
@@ -31,6 +30,7 @@ from routers.students_answers import router as students_answers_router
 from routers.questions import router as questions_router
 from routers.prompting import router as prompting_router
 from routers.guidelines import router as guidelines_router
+from routers.professors import router as professors_router
 
 # FastAPI app instance
 app = FastAPI(
@@ -49,7 +49,6 @@ app.add_middleware(
 
 # Include Routers under /api/v1
 prefix = "/api/v1"
-app.include_router(pauta_router, prefix=prefix)
 app.include_router(prueba_router, prefix=prefix)
 app.include_router(files_router, prefix=prefix)
 app.include_router(analyze_router, prefix=prefix)
@@ -62,6 +61,7 @@ app.include_router(students_answers_router, prefix=prefix)
 app.include_router(questions_router, prefix=prefix)
 app.include_router(prompting_router, prefix=prefix)
 app.include_router(guidelines_router, prefix=prefix)
+app.include_router(professors_router, prefix=prefix)
 
 # Create tables on startup
 @app.on_event("startup")
