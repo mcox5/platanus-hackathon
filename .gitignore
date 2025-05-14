@@ -170,3 +170,5 @@ data/
 
 .dockerignore
 
+*.sql
+*backup.gz
